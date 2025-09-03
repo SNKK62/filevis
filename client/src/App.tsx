@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { list, fileUrl } from './api';
 import type { Entry, DirListing } from './types';
 import Pane from './components/Pane';
+import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
 import { PAGE_SIZE } from './config';
 import Preview from './components/Preview';
 import Breadcrumbs from './components/Breadcrumbs';
@@ -271,9 +273,9 @@ export default function App() {
 
       {showSearch && (
         <div className="absolute bottom-2 left-2 bg-white border rounded p-2 shadow">
-          <input
+          <Input
             autoFocus
-            className="border px-2 py-1"
+            className="w-64"
             placeholder="Filter... (/で開閉, Tabでペイン切替)"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}

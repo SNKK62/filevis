@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from './ui/button';
 
 type Props = { path: string; onJump: (p: string) => void };
 export default function Breadcrumbs({ path, onJump }: Props) {
@@ -6,18 +7,17 @@ export default function Breadcrumbs({ path, onJump }: Props) {
   const acc: string[] = [];
   return (
     <div className="text-sm px-3 py-2 border-b">
-      <button className="underline" onClick={() => onJump('/')}>/</button>
+      <Button variant="link" onClick={() => onJump('/')}>/</Button>
       {parts.map((p, i) => {
         acc.push(p);
         const joined = '/' + acc.join('/');
         return (
           <span key={i}>
             {' / '}
-            <button className="underline" onClick={() => onJump(joined)}>{p}</button>
+            <Button variant="link" onClick={() => onJump(joined)}>{p}</Button>
           </span>
         );
       })}
     </div>
   );
 }
-
