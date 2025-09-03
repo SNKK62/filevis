@@ -30,6 +30,7 @@ export default function App() {
   const [filter, setFilter] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [activePane, setActivePane] = useState<'left' | 'right'>('left');
+  const [previewMax, setPreviewMax] = useState(false);
 
   // Pending select name when shifting panes
   const pendingLeftSelect = useRef<string | null>(null);
@@ -198,6 +199,12 @@ export default function App() {
       openSearch: () => {
         setShowSearch((v) => !v);
       },
+      togglePreviewMax: () => {
+        const e = rightFiltered[rightSelected];
+        if (!e || e.isDir) return;
+        if (!allowExt(e.name)) return;
+        setPreviewMax((v) => !v);
+      },
     }),
     [activePane, leftDirs, leftSelected, rightFiltered, rightSelected, leftPath, rightPath, rightNavLoading, previewLoading]
   );
@@ -226,7 +233,8 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col">
       <Breadcrumbs path={rightPath || leftPath} onJump={(p) => setLeftPath(p)} />
-      <div className="flex-1 grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', minHeight: 0 }}>
+      <div className="flex-1 grid" style={{ gridTemplateColumns: previewMax ? '1fr' : '1fr 1fr 1fr', minHeight: 0 }}>
+        {!previewMax && (
         <div
           className={`border-r h-full overflow-auto ${activePane === 'left' ? 'bg-white' : ''}`}
           onClick={() => setActivePane('left')}
@@ -239,6 +247,8 @@ export default function App() {
             pageSize={PAGE_SIZE}
           />
         </div>
+        )}
+        {!previewMax && (
         <div className={`border-r h-full overflow-auto relative`} onClick={() => { if (!rightNavLoading) setActivePane('right'); }}>
           {rightNavLoading ? (
             <div className="absolute inset-0 flex items-center justify-center bg-white">
@@ -254,7 +264,8 @@ export default function App() {
             />
           )}
         </div>
-        <div className="h-full overflow-auto relative">
+        )}
+        <div className={`h-full overflow-auto relative ${previewMax ? 'flex items-center justify-center' : ''}`}>
           {!rightEntry || rightEntry.isDir ? null : (
             previewLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60">

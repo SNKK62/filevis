@@ -11,6 +11,7 @@ export const defaultKeymap: KeyMap = [
   { key: 'G', command: 'bottom' },
   { key: 'r', command: 'refresh' },
   { key: '/', command: 'search' },
+  { key: 'f', command: 'togglePreviewMax' },
 ];
 
 export function loadKeymap(): KeyMap {
@@ -24,4 +25,3 @@ export function loadKeymap(): KeyMap {
 export function saveKeymap(km: KeyMap) {
   localStorage.setItem('localview.keymap', JSON.stringify(km));
 }
-

@@ -48,9 +48,10 @@ export default function Preview({ path, entry, onLoaded, onLoadingStart }: { pat
         key={debouncedUrl}
         controls
         autoPlay
+        loop
         muted
         playsInline
-        className="w-full h-full"
+        className="max-w-full max-h-full object-contain"
         onLoadedData={() => onLoaded?.(true)}
         onCanPlayThrough={() => onLoaded?.(true)}
         onError={() => onLoaded?.(false)}

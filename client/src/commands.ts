@@ -7,6 +7,7 @@ export type CommandCtx = {
   goBottom: () => void;
   refresh: () => void;
   openSearch: () => void;
+  togglePreviewMax: () => void;
 };
 
 export interface Command {
@@ -31,5 +32,5 @@ export const defaultCommands: Command[] = [
   { id: 'bottom', run: (c) => c.goBottom(), description: 'Go bottom' },
   { id: 'refresh', run: (c) => c.refresh(), description: 'Reload' },
   { id: 'search', run: (c) => c.openSearch(), description: 'Filter entries' },
+  { id: 'togglePreviewMax', run: (c) => c.togglePreviewMax(), description: 'Toggle preview maximize' },
 ];
-
