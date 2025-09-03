@@ -1,0 +1,42 @@
+# Node dependencies
+node_modules/
+
+# Build outputs
+dist/
+client/dist/
+dist-server/
+
+# Vite/Cache
+.vite/
+.cache/
+.parcel-cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Editors/IDE
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage/Reports
+coverage/
+*.lcov
+

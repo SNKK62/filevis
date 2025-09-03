@@ -1,0 +1,35 @@
+export type CommandCtx = {
+  openSelected: () => void;
+  goParent: () => void;
+  moveUp: () => void;
+  moveDown: () => void;
+  goTop: () => void;
+  goBottom: () => void;
+  refresh: () => void;
+  openSearch: () => void;
+};
+
+export interface Command {
+  id: string;
+  run: (ctx: CommandCtx) => void;
+  description?: string;
+}
+
+export class CommandRegistry {
+  private map = new Map<string, Command>();
+  register(cmd: Command) { this.map.set(cmd.id, cmd); }
+  run(id: string, ctx: CommandCtx) { this.map.get(id)?.run(ctx); }
+  ids() { return [...this.map.keys()]; }
+}
+
+export const defaultCommands: Command[] = [
+  { id: 'open', run: (c) => c.openSelected(), description: 'Open file/folder' },
+  { id: 'back', run: (c) => c.goParent(), description: 'Go parent' },
+  { id: 'up', run: (c) => c.moveUp(), description: 'Move up' },
+  { id: 'down', run: (c) => c.moveDown(), description: 'Move down' },
+  { id: 'top', run: (c) => c.goTop(), description: 'Go top' },
+  { id: 'bottom', run: (c) => c.goBottom(), description: 'Go bottom' },
+  { id: 'refresh', run: (c) => c.refresh(), description: 'Reload' },
+  { id: 'search', run: (c) => c.openSearch(), description: 'Filter entries' },
+];
+
