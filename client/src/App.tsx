@@ -36,6 +36,7 @@ export default function App() {
   const [leftLoading, setLeftLoading] = useState(false);
   const [leftReloadNonce, setLeftReloadNonce] = useState(0);
   const [rightReloadNonce, setRightReloadNonce] = useState(0);
+  const pendingRightReload = useRef(false);
 
   // Pending select name when shifting panes
   const pendingLeftSelect = useRef<string | null>(null);
@@ -54,12 +55,10 @@ export default function App() {
       const dl = await list(leftPath);
       setLeftListing(dl);
       // Finish left loading after paint
-      if (leftLoading) {
-        if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
-          window.requestAnimationFrame(() => window.requestAnimationFrame(() => setLeftLoading(false)));
-        } else {
-          setLeftLoading(false);
-        }
+      if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => setLeftLoading(false)));
+      } else {
+        setLeftLoading(false);
       }
     })();
   }, [leftPath, leftReloadNonce]);
@@ -123,6 +122,12 @@ export default function App() {
       const dl = await list(rightPath);
       setRightListing(dl);
       setRightSelected(0);
+      // If this fetch was triggered by explicit refresh, finish loading here
+      if (pendingRightReload.current) {
+        pendingRightReload.current = false;
+        rightNavLockRef.current = false;
+        setRightNavLoading(false);
+      }
     })();
   }, [rightPath, rightReloadNonce]);
 
@@ -252,7 +257,7 @@ export default function App() {
         } else {
           if (!rightPath) return;
           // show right loading and refetch right listing
-          pendingRightTarget.current = rightPath;
+          pendingRightReload.current = true;
           rightNavLockRef.current = true;
           setRightNavLoading(true);
           setRightReloadNonce((n) => n + 1);
