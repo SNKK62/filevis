@@ -48,6 +48,25 @@ export default function App() {
   }, []);
 
   const keymap = useMemo(() => loadKeymap(), []);
+  const keyHelpItems = useMemo(() => {
+    const cmdMap = new Map(defaultCommands.map((c) => [c.id, c.description ?? c.id]));
+    const groups = new Map<string, string[]>();
+    keymap.forEach(({ key, command }) => {
+      if (!groups.has(command)) groups.set(command, []);
+      groups.get(command)!.push(key);
+    });
+    const order = [
+      'down','up','back','open','openFile','top','bottom',
+      'togglePreviewMax','zoomIn','zoomOut','zoomReset','refresh','search','help'
+    ];
+    const items = Array.from(groups.entries()).map(([id, keys]) => ({
+      id,
+      keys: Array.from(new Set(keys)),
+      description: cmdMap.get(id) || id,
+    }));
+    items.sort((a, b) => (order.indexOf(a.id) - order.indexOf(b.id)) || a.id.localeCompare(b.id));
+    return items;
+  }, [keymap]);
 
   // Load left listing when path changes
   useEffect(() => {
@@ -399,60 +418,14 @@ export default function App() {
       )}
 
       <div className="border-t px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1 max-h-24 overflow-auto">
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">j</kbd>
-          <kbd className="inline-block px-1 border rounded mr-1">k</kbd>
-          Move
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">h</kbd>
-          Parent
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">l</kbd>
-          Open dir (file: none)
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">Enter</kbd>
-          Open file
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">Tab</kbd>
-          Switch pane
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">/</kbd>
-          Search
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">g</kbd>
-          Top
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">G</kbd>
-          Bottom
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">f</kbd>
-          Toggle maximize
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">+</kbd>
-          <kbd className="inline-block px-1 border rounded mr-1">-</kbd>
-          Zoom in/out (max only)
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">0</kbd>
-          Reset zoom (max only)
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">r</kbd>
-          Refresh
-        </span>
-        <span>
-          <kbd className="inline-block px-1 border rounded mr-1">?</kbd>
-          Help
-        </span>
+        {keyHelpItems.map((it) => (
+          <span key={it.id} className="whitespace-nowrap">
+            {it.keys.map((k, i) => (
+              <kbd key={k} className={`inline-block px-1 border rounded ${i < it.keys.length - 1 ? 'mr-1' : 'mr-2'}`}>{k}</kbd>
+            ))}
+            {it.description}
+          </span>
+        ))}
       </div>
 
       {showHelp && (
@@ -460,18 +433,14 @@ export default function App() {
           <div className="bg-white rounded shadow p-4 max-w-3xl w-[90%] max-h-[70vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-sm font-semibold mb-2">キーバインド一覧</h2>
             <ul className="text-xs grid grid-cols-2 gap-x-6 gap-y-1">
-              <li><kbd className="px-1 border rounded mr-1">j</kbd>/<kbd className="px-1 border rounded mr-1">k</kbd> Move</li>
-              <li><kbd className="px-1 border rounded mr-1">h</kbd> Parent</li>
-              <li><kbd className="px-1 border rounded mr-1">l</kbd> Open dir (file: none)</li>
-              <li><kbd className="px-1 border rounded mr-1">Enter</kbd> Open file</li>
-              <li><kbd className="px-1 border rounded mr-1">Tab</kbd> Switch pane</li>
-              <li><kbd className="px-1 border rounded mr-1">/</kbd> Search</li>
-              <li><kbd className="px-1 border rounded mr-1">g</kbd>/<kbd className="px-1 border rounded mr-1">G</kbd> Top/Bottom</li>
-              <li><kbd className="px-1 border rounded mr-1">f</kbd> Toggle maximize</li>
-              <li><kbd className="px-1 border rounded mr-1">+</kbd>/<kbd className="px-1 border rounded mr-1">-</kbd> Zoom in/out</li>
-              <li><kbd className="px-1 border rounded mr-1">0</kbd> Reset zoom</li>
-              <li><kbd className="px-1 border rounded mr-1">r</kbd> Refresh</li>
-              <li><kbd className="px-1 border rounded mr-1">?</kbd> Toggle this help</li>
+              {keyHelpItems.map((it) => (
+                <li key={it.id} className="whitespace-nowrap">
+                  {it.keys.map((k, i) => (
+                    <kbd key={k} className={`px-1 border rounded ${i < it.keys.length - 1 ? 'mr-1' : 'mr-2'}`}>{k}</kbd>
+                  ))}
+                  {it.description}
+                </li>
+              ))}
             </ul>
             <div className="text-right mt-3">
               <button className="underline text-sm" onClick={() => setShowHelp(false)}>閉じる</button>
