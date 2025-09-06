@@ -50,67 +50,78 @@ export default function Preview({ path, entry, onLoaded, onLoadingStart, scale =
     }, VIDEO_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [url, isVideo]);
-  if (!entry || entry.isDir) {
-    return <div className="p-4 text-gray-500">ファイルを選択するとプレビュー</div>;
-  }
-
   // Compute fitted width at scale=1, then multiply by scale
   const { w: cw, h: ch } = containerSize;
   const { w: iw, h: ih } = intrinsic;
   const fit = iw > 0 && ih > 0 && cw > 0 && ch > 0 ? Math.min(cw / iw, ch / ih) : 1;
   const displayWidth = iw > 0 ? Math.max(1, iw * fit * Math.max(0.01, scale)) : undefined;
+  const ready = iw > 0 && ih > 0 && cw > 0 && ch > 0;
 
   const mediaStyle: React.CSSProperties = displayWidth ? { width: `${displayWidth}px`, height: 'auto' } : {};
   const cls = 'object-contain';
   
-  if (isImage) {
-    return (
-      <div ref={containerRef} className="w-full h-full flex items-center justify-center">
+  // For images, signal loading start on URL change
+  useEffect(() => {
+    if (isImage && url) onLoadingStart?.();
+  }, [isImage, url, onLoadingStart]);
+
+  // Notify loaded only when ready to render (both sizes known)
+  useEffect(() => {
+    if (ready) onLoaded?.(true);
+  }, [ready, onLoaded]);
+  let content: React.ReactNode = <div className="p-4 text-gray-500">ファイルを選択するとプレビュー</div>;
+  if (entry && !entry.isDir) {
+    if (isImage) {
+      content = (
         <img
           key={url}
           src={url}
           alt={entry.name}
           className={cls}
-          style={mediaStyle}
+          style={ready ? mediaStyle : { visibility: 'hidden' }}
           onLoad={(e) => {
             const img = e.currentTarget;
             setIntrinsic({ w: img.naturalWidth || 0, h: img.naturalHeight || 0 });
-            onLoaded?.(true);
           }}
           onError={() => onLoaded?.(false)}
         />
-      </div>
-    );
-  }
-  if (isVideo) {
-    const type = lower.endsWith('.webm') ? 'video/webm' : lower.endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
-    if (debouncedUrl !== url) {
-      // Waiting for debounce timer; parent shows loading overlay
-      return <div ref={containerRef} className="w-full h-full flex items-center justify-center" />;
+      );
+    } else if (isVideo) {
+      const type = lower.endsWith('.webm') ? 'video/webm' : lower.endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
+      if (debouncedUrl === url) {
+        content = (
+          <video
+            key={debouncedUrl}
+            controls
+            autoPlay
+            loop
+            muted
+            playsInline
+            className={cls}
+            style={ready ? mediaStyle : { visibility: 'hidden' }}
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              setIntrinsic({ w: v.videoWidth || 0, h: v.videoHeight || 0 });
+            }}
+            onLoadedData={() => { if (ready) onLoaded?.(true); }}
+            onCanPlayThrough={() => { if (ready) onLoaded?.(true); }}
+            onError={() => onLoaded?.(false)}
+          >
+            <source src={debouncedUrl} type={type} />
+          </video>
+        );
+      } else {
+        // Waiting for debounce timer; parent shows loading overlay
+        content = null;
+      }
+    } else {
+      content = <div className="p-4">未対応の拡張子: {entry.name}</div>;
     }
-    return (
-      <div ref={containerRef} className="w-full h-full flex items-center justify-center">
-        <video
-          key={debouncedUrl}
-          controls
-          autoPlay
-          loop
-          muted
-          playsInline
-          className={cls}
-          style={mediaStyle}
-          onLoadedMetadata={(e) => {
-            const v = e.currentTarget;
-            setIntrinsic({ w: v.videoWidth || 0, h: v.videoHeight || 0 });
-          }}
-          onLoadedData={() => onLoaded?.(true)}
-          onCanPlayThrough={() => onLoaded?.(true)}
-          onError={() => onLoaded?.(false)}
-        >
-          <source src={debouncedUrl} type={type} />
-        </video>
-      </div>
-    );
   }
-  return <div className="p-4">未対応の拡張子: {entry.name}</div>;
+
+  return (
+    <div ref={containerRef} className="w-full h-full flex items-center justify-center">
+      {content}
+    </div>
+  );
 }

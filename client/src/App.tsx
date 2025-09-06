@@ -7,10 +7,17 @@ import { Input } from './components/ui/input';
 import { PAGE_SIZE } from './config';
 import Preview from './components/Preview';
 import Breadcrumbs from './components/Breadcrumbs';
+import FooterHelp from './components/FooterHelp';
+import HelpOverlay from './components/HelpOverlay';
+import SearchOverlay from './components/SearchOverlay';
+import { allowExt } from './lib/media';
+import { base, join, parent } from './lib/path';
+import { useKeyHelp } from './hooks/useKeyHelp';
 import { CommandRegistry, defaultCommands } from './commands';
 import { loadKeymap } from './keymap';
+import { afterNextPaint } from './lib/afterPaint';
 
-const allowExt = (name: string) => /(\.(jpg|jpeg|png|gif|webp|mp4|webm|mov))$/i.test(name.toLowerCase());
+// media/file helpers moved to lib
 
 export default function App() {
   // Left pane state
@@ -48,25 +55,7 @@ export default function App() {
   }, []);
 
   const keymap = useMemo(() => loadKeymap(), []);
-  const keyHelpItems = useMemo(() => {
-    const cmdMap = new Map(defaultCommands.map((c) => [c.id, c.description ?? c.id]));
-    const groups = new Map<string, string[]>();
-    keymap.forEach(({ key, command }) => {
-      if (!groups.has(command)) groups.set(command, []);
-      groups.get(command)!.push(key);
-    });
-    const order = [
-      'down','up','back','open','openFile','top','bottom',
-      'togglePreviewMax','zoomIn','zoomOut','zoomReset','refresh','search','help'
-    ];
-    const items = Array.from(groups.entries()).map(([id, keys]) => ({
-      id,
-      keys: Array.from(new Set(keys)),
-      description: cmdMap.get(id) || id,
-    }));
-    items.sort((a, b) => (order.indexOf(a.id) - order.indexOf(b.id)) || a.id.localeCompare(b.id));
-    return items;
-  }, [keymap]);
+  const keyHelpItems = useKeyHelp();
 
   // Load left listing when path changes
   useEffect(() => {
@@ -74,11 +63,7 @@ export default function App() {
       const dl = await list(leftPath);
       setLeftListing(dl);
       // Finish left loading after paint
-      if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
-        window.requestAnimationFrame(() => window.requestAnimationFrame(() => setLeftLoading(false)));
-      } else {
-        setLeftLoading(false);
-      }
+      afterNextPaint(() => setLeftLoading(false));
     })();
   }, [leftPath, leftReloadNonce]);
 
@@ -113,7 +98,7 @@ export default function App() {
   useEffect(() => {
     if (!leftListing || leftListing.path !== leftPath) return;
     const dirs = leftDirs;
-    const idx = Math.min(Math.max(0, leftSelected), Math.max(0, dirs.length - 1));
+    const idx = Math.max(0, Math.min(leftSelected, dirs.length - 1));
     const target = dirs[idx] ? join(leftListing.path, dirs[idx].name) : '';
     if (target !== rightPath) {
       if (target) {
@@ -329,9 +314,6 @@ export default function App() {
         setActivePane((p) => (p === 'left' ? 'right' : 'left'));
         return;
       }
-      if (e.key === '+' || e.key === '=') { e.preventDefault(); cmds.run('zoomIn', ctx); return; }
-      if (e.key === '-' || e.key === '_') { e.preventDefault(); cmds.run('zoomOut', ctx); return; }
-      if (e.key === '0') { e.preventDefault(); cmds.run('zoomReset', ctx); return; }
       const b = keymap.find((k) => k.key === e.key);
       if (b) {
         e.preventDefault();
@@ -435,65 +417,14 @@ export default function App() {
       </div>
 
       {showSearch && (
-        <div className="absolute bottom-2 left-2 bg-white border rounded p-2 shadow">
-          <Input
-            autoFocus
-            className="w-64"
-            placeholder="Filter... (/で開閉, Tabでペイン切替)"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' || e.key === '/') setShowSearch(false);
-            }}
-          />
-        </div>
+        <SearchOverlay value={filter} onChange={setFilter} onClose={() => setShowSearch(false)} />
       )}
 
-      <div className="border-t px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1 max-h-24 overflow-auto">
-        {keyHelpItems.map((it) => (
-          <span key={it.id} className="whitespace-nowrap">
-            {it.keys.map((k, i) => (
-              <kbd key={k} className={`inline-block px-1 border rounded ${i < it.keys.length - 1 ? 'mr-1' : 'mr-2'}`}>{k}</kbd>
-            ))}
-            {it.description}
-          </span>
-        ))}
-      </div>
+      <FooterHelp items={keyHelpItems} />
 
-      {showHelp && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowHelp(false)}>
-          <div className="bg-white rounded shadow p-4 max-w-3xl w-[90%] max-h-[70vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-sm font-semibold mb-2">キーバインド一覧</h2>
-            <ul className="text-xs grid grid-cols-2 gap-x-6 gap-y-1">
-              {keyHelpItems.map((it) => (
-                <li key={it.id} className="whitespace-nowrap">
-                  {it.keys.map((k, i) => (
-                    <kbd key={k} className={`px-1 border rounded ${i < it.keys.length - 1 ? 'mr-1' : 'mr-2'}`}>{k}</kbd>
-                  ))}
-                  {it.description}
-                </li>
-              ))}
-            </ul>
-            <div className="text-right mt-3">
-              <button className="underline text-sm" onClick={() => setShowHelp(false)}>閉じる</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showHelp && (<HelpOverlay items={keyHelpItems} onClose={() => setShowHelp(false)} />)}
     </div>
   );
 }
 
-function parent(p: string) {
-  if (p === '/' || p === '') return '/';
-  const parts = p.split('/').filter(Boolean);
-  parts.pop();
-  return '/' + parts.join('/');
-}
-function join(a: string, b: string) {
-  return (a.endsWith('/') ? a : a + '/') + b;
-}
-function base(p: string) {
-  const parts = p.split('/').filter(Boolean);
-  return parts.pop() ?? '';
-}
+// path helpers moved to lib

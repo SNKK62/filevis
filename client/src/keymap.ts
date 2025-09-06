@@ -14,10 +14,8 @@ export const defaultKeymap: KeyMap = [
   { key: 'f', command: 'togglePreviewMax' },
   { key: '+', command: 'zoomIn' },
   { key: '=', command: 'zoomIn' },
-  { key: ']', command: 'zoomIn' },
   { key: '-', command: 'zoomOut' },
   { key: '_', command: 'zoomOut' },
-  { key: '[', command: 'zoomOut' },
   { key: '0', command: 'zoomReset' },
   { key: '?', command: 'help' },
 ];
