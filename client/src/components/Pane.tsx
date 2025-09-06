@@ -7,9 +7,10 @@ type Props = {
   onSelect: (idx: number) => void;
   isActive?: boolean;
   pageSize?: number;
+  onOpenDir?: (idx: number) => void;
 };
 
-export default function Pane({ entries, selected, onSelect, isActive = true, pageSize = 1000 }: Props) {
+export default function Pane({ entries, selected, onSelect, isActive = true, pageSize = 1000, onOpenDir }: Props) {
   const [visibleCount, setVisibleCount] = useState(Math.min(pageSize, entries.length));
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -53,14 +54,15 @@ export default function Pane({ entries, selected, onSelect, isActive = true, pag
   }, [selected, visibleCount, isActive]);
 
   return (
-    <div ref={ref} className="overflow-auto h-full" onScroll={onScroll}>
+    <div ref={ref} className="overflow-auto h-full select-none" onScroll={onScroll}>
       <ul className="text-sm">
         {slice.map((e, i) => (
           <li
             key={e.name}
             data-idx={i}
-            onMouseMove={() => { if (isActive) onSelect(i); }}
-            className={`px-3 py-1 cursor-default ${isActive && i === selected ? 'bg-gray-200' : ''}`}
+            onClick={() => onSelect(i)}
+            onDoubleClick={() => { if (entries[i]?.isDir && onOpenDir) onOpenDir(i); }}
+            className={`px-3 py-1 cursor-pointer ${isActive && i === selected ? 'bg-gray-200' : ''}`}
           >
             <span className="mr-2">{e.isDir ? '📁' : '📄'}</span>
             <span>{e.name}</span>

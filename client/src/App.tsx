@@ -350,7 +350,7 @@ export default function App() {
       <div className="flex-1 grid" style={{ gridTemplateColumns: previewMax ? '1fr' : '1fr 1fr 1fr', minHeight: 0 }}>
         {!previewMax && (
         <div
-          className={`border-r h-full overflow-auto relative ${activePane === 'left' ? 'bg-white' : ''}`}
+          className={`border-r h-full overflow-auto relative select-none ${activePane === 'left' ? 'bg-white' : ''}`}
           onClick={() => setActivePane('left')}
         >
           {leftLoading && (
@@ -362,13 +362,20 @@ export default function App() {
             entries={leftDirs}
             selected={leftSelected}
             onSelect={(i) => { if (activePane === 'left') setLeftSelected(i); }}
+            onOpenDir={(_i) => {
+              // Left double-click: behave like 'h' (go parent)
+              if (leftPath === '/' || leftPath === '') return;
+              const childName = base(leftPath);
+              pendingLeftSelect.current = childName;
+              setLeftPath(parent(leftPath));
+            }}
             isActive={activePane === 'left'}
             pageSize={PAGE_SIZE}
           />
         </div>
         )}
         {!previewMax && (
-        <div className={`border-r h-full overflow-auto relative`} onClick={() => { if (!rightNavLoading) setActivePane('right'); }}>
+        <div className={`border-r h-full overflow-auto relative select-none`} onClick={() => { if (!rightNavLoading) setActivePane('right'); }}>
           {rightNavLoading ? (
             <div className="absolute inset-0 flex items-center justify-center bg-white">
               <div className="text-sm text-gray-500">Loading...</div>
@@ -378,13 +385,36 @@ export default function App() {
               entries={rightFiltered}
               selected={rightSelected}
               onSelect={(i) => { setRightSelected(i); }}
+              onOpenDir={(i) => {
+                if (rightNavLoading || rightNavLockRef.current) return;
+                const entry = rightFiltered[i];
+                if (!entry || !entry.isDir) return;
+                setRightSelected(i);
+                pendingLeftSelect.current = entry.name;
+                pendingRightTarget.current = join(rightPath, entry.name);
+                rightNavLockRef.current = true;
+                setRightNavLoading(true);
+                setLeftPath(rightPath);
+              }}
               isActive={activePane === 'right'}
               pageSize={PAGE_SIZE}
             />
           )}
         </div>
         )}
-        <div className={`h-full overflow-auto relative ${previewMax ? 'flex items-center justify-center' : ''}`}>
+        {(() => {
+          const canToggle = !!(rightEntry && !rightEntry.isDir && allowExt(rightEntry.name));
+          const cursor = canToggle ? (previewMax ? 'cursor-zoom-out' : 'cursor-zoom-in') : '';
+          return (
+            <div
+              className={`h-full overflow-auto relative ${previewMax ? 'flex items-center justify-center' : ''} ${cursor}`}
+              onClick={() => {
+                if (!canToggle) return;
+                if (rightNavLoading || previewLoading) return;
+                setPreviewMax((v) => !v);
+              }}
+              title={canToggle ? (previewMax ? '縮小 (クリックで通常表示)' : '拡大 (クリックで最大化)') : undefined}
+            >
           {!rightEntry || rightEntry.isDir ? null : (
             previewLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60">
@@ -399,7 +429,9 @@ export default function App() {
             onLoaded={() => setPreviewLoading(false)}
             scale={previewMax ? previewScale : 1}
           />
-        </div>
+            </div>
+          );
+        })()}
       </div>
 
       {showSearch && (
