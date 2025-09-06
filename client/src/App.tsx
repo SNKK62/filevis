@@ -58,7 +58,15 @@ export default function App() {
     if (!leftListing) return;
     if (pendingLeftSelect.current) {
       const idx = leftDirs.findIndex((d) => d.name === pendingLeftSelect.current);
-      setLeftSelected(idx >= 0 ? idx : 0);
+      if (idx >= 0) {
+        setLeftSelected(idx);
+      } else {
+        // target child missing; cancel nav safely
+        pendingRightTarget.current = null;
+        setRightNavLoading(false);
+        rightNavLockRef.current = false;
+        setLeftSelected(0);
+      }
       pendingLeftSelect.current = null;
     } else {
       // Reset selection when path changes normally
@@ -68,14 +76,31 @@ export default function App() {
     if (leftSelected >= leftDirs.length) setLeftSelected(Math.max(0, leftDirs.length - 1));
   }, [leftListing]);
 
-  const rightPath = useMemo(() => {
-    // Avoid transient mismatch: wait until leftListing reflects leftPath
-    if (!leftListing || leftListing.path !== leftPath) return '';
-    const d = leftDirs[leftSelected];
-    return d ? join(leftListing.path, d.name) : '';
-  }, [leftListing, leftPath, leftDirs, leftSelected]);
+  const [rightPath, setRightPath] = useState<string>('');
 
-  // Load right listing whenever left selection/path changes
+  // Derive rightPath from left side (after left listing reflects leftPath)
+  useEffect(() => {
+    if (!leftListing || leftListing.path !== leftPath) return;
+    const dirs = leftDirs;
+    const idx = Math.min(Math.max(0, leftSelected), Math.max(0, dirs.length - 1));
+    const target = dirs[idx] ? join(leftListing.path, dirs[idx].name) : '';
+    if (target !== rightPath) {
+      if (target) {
+        pendingRightTarget.current = target;
+        setRightNavLoading(true);
+        setRightPath(target);
+      } else {
+        // No dir available; clear right pane
+        pendingRightTarget.current = null;
+        setRightPath('');
+        setRightListing(null);
+        setRightNavLoading(false);
+        rightNavLockRef.current = false;
+      }
+    }
+  }, [leftListing?.path, leftPath, leftDirs, leftSelected]);
+
+  // Load right listing when rightPath changes
   useEffect(() => {
     (async () => {
       if (!rightPath) {
@@ -145,10 +170,21 @@ export default function App() {
           setLeftPath(rightPath);
           // keep current focus (do not force to right). right shows loading only
         } else {
-          if (previewLoading) return; // block until preview loaded
-          const p = join(rightPath, entry.name);
-          window.open(fileUrl(p), '_blank');
+          // On file: do nothing for 'l' (openSelected)
         }
+      },
+      openFile: () => {
+        if (activePane === 'left') {
+          // If pressed Enter on left, just move focus to right
+          setActivePane('right');
+          return;
+        }
+        if (rightNavLoading || rightNavLockRef.current) return;
+        const entry = rightFiltered[rightSelected];
+        if (!entry || entry.isDir) return;
+        if (previewLoading) return; // wait until preview ready
+        const p = join(rightPath, entry.name);
+        window.open(fileUrl(p), '_blank');
       },
       goParent: () => {
         if (activePane === 'right') {
@@ -296,6 +332,50 @@ export default function App() {
           />
         </div>
       )}
+
+      <div className="border-t px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">j</kbd>
+          <kbd className="inline-block px-1 border rounded mr-1">k</kbd>
+          Move
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">h</kbd>
+          Parent
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">l</kbd>
+          Open dir (file: none)
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">Enter</kbd>
+          Open file
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">Tab</kbd>
+          Switch pane
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">/</kbd>
+          Search
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">g</kbd>
+          Top
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">G</kbd>
+          Bottom
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">f</kbd>
+          Toggle maximize
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">r</kbd>
+          Refresh
+        </span>
+      </div>
     </div>
   );
 }

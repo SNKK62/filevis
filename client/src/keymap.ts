@@ -6,7 +6,7 @@ export const defaultKeymap: KeyMap = [
   { key: 'k', command: 'up' },
   { key: 'h', command: 'back' },
   { key: 'l', command: 'open' },
-  { key: 'Enter', command: 'open' },
+  { key: 'Enter', command: 'openFile' },
   { key: 'g', command: 'top' },
   { key: 'G', command: 'bottom' },
   { key: 'r', command: 'refresh' },

@@ -1,5 +1,6 @@
 export type CommandCtx = {
   openSelected: () => void;
+  openFile: () => void;
   goParent: () => void;
   moveUp: () => void;
   moveDown: () => void;
@@ -25,6 +26,7 @@ export class CommandRegistry {
 
 export const defaultCommands: Command[] = [
   { id: 'open', run: (c) => c.openSelected(), description: 'Open file/folder' },
+  { id: 'openFile', run: (c) => c.openFile(), description: 'Open file (preview target)' },
   { id: 'back', run: (c) => c.goParent(), description: 'Go parent' },
   { id: 'up', run: (c) => c.moveUp(), description: 'Move up' },
   { id: 'down', run: (c) => c.moveDown(), description: 'Move down' },
