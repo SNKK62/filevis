@@ -9,6 +9,10 @@ export type CommandCtx = {
   refresh: () => void;
   openSearch: () => void;
   togglePreviewMax: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomReset: () => void;
+  toggleHelp: () => void;
 };
 
 export interface Command {
@@ -35,4 +39,8 @@ export const defaultCommands: Command[] = [
   { id: 'refresh', run: (c) => c.refresh(), description: 'Reload' },
   { id: 'search', run: (c) => c.openSearch(), description: 'Filter entries' },
   { id: 'togglePreviewMax', run: (c) => c.togglePreviewMax(), description: 'Toggle preview maximize' },
+  { id: 'zoomIn', run: (c) => c.zoomIn(), description: 'Zoom in preview' },
+  { id: 'zoomOut', run: (c) => c.zoomOut(), description: 'Zoom out preview' },
+  { id: 'zoomReset', run: (c) => c.zoomReset(), description: 'Reset preview zoom' },
+  { id: 'help', run: (c) => c.toggleHelp(), description: 'Show keybinds' },
 ];

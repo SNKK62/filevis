@@ -31,6 +31,11 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [activePane, setActivePane] = useState<'left' | 'right'>('left');
   const [previewMax, setPreviewMax] = useState(false);
+  const [previewScale, setPreviewScale] = useState(1);
+  const [showHelp, setShowHelp] = useState(false);
+  const [leftLoading, setLeftLoading] = useState(false);
+  const [leftReloadNonce, setLeftReloadNonce] = useState(0);
+  const [rightReloadNonce, setRightReloadNonce] = useState(0);
 
   // Pending select name when shifting panes
   const pendingLeftSelect = useRef<string | null>(null);
@@ -48,8 +53,16 @@ export default function App() {
     (async () => {
       const dl = await list(leftPath);
       setLeftListing(dl);
+      // Finish left loading after paint
+      if (leftLoading) {
+        if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => setLeftLoading(false)));
+        } else {
+          setLeftLoading(false);
+        }
+      }
     })();
-  }, [leftPath]);
+  }, [leftPath, leftReloadNonce]);
 
   const leftDirs = useMemo(() => leftListing?.entries.filter((e) => e.isDir) ?? [], [leftListing]);
 
@@ -111,7 +124,7 @@ export default function App() {
       setRightListing(dl);
       setRightSelected(0);
     })();
-  }, [rightPath]);
+  }, [rightPath, rightReloadNonce]);
 
   // Proactively mark right navigation loading on any rightPath change
   const prevRightPath = useRef<string>('');
@@ -147,6 +160,7 @@ export default function App() {
   }, [rightListing, filter]);
 
   // Preview loading is managed by Preview component (debounced for videos)
+  const rightEntry = rightFiltered[rightSelected];
 
   const ctx = useMemo(
     () => ({
@@ -230,20 +244,57 @@ export default function App() {
         }
       },
       refresh: () => {
-        setLeftPath((p) => p); // trigger reload via effect
+        if (activePane === 'left') {
+          setLeftLoading(true);
+          setLeftReloadNonce((n) => n + 1);
+          // also refresh right side content since it depends on left
+          setRightReloadNonce((n) => n + 1);
+        } else {
+          if (!rightPath) return;
+          // show right loading and refetch right listing
+          pendingRightTarget.current = rightPath;
+          rightNavLockRef.current = true;
+          setRightNavLoading(true);
+          setRightReloadNonce((n) => n + 1);
+        }
       },
       openSearch: () => {
         setShowSearch((v) => !v);
       },
+      toggleHelp: () => setShowHelp((v) => !v),
       togglePreviewMax: () => {
         const e = rightFiltered[rightSelected];
         if (!e || e.isDir) return;
         if (!allowExt(e.name)) return;
         setPreviewMax((v) => !v);
       },
+      zoomIn: () => {
+        if (!previewMax) return;
+        const e = rightFiltered[rightSelected];
+        if (!e || e.isDir) return;
+        if (!allowExt(e.name)) return;
+        setPreviewScale((s) => Math.min(8, s * 1.2));
+      },
+      zoomOut: () => {
+        if (!previewMax) return;
+        const e = rightFiltered[rightSelected];
+        if (!e || e.isDir) return;
+        if (!allowExt(e.name)) return;
+        setPreviewScale((s) => Math.max(0.25, s / 1.2));
+      },
+      zoomReset: () => {
+        if (!previewMax) return;
+        const e = rightFiltered[rightSelected];
+        if (!e || e.isDir) return;
+        if (!allowExt(e.name)) return;
+        setPreviewScale(1);
+      },
     }),
-    [activePane, leftDirs, leftSelected, rightFiltered, rightSelected, leftPath, rightPath, rightNavLoading, previewLoading]
+    [activePane, leftDirs, leftSelected, rightFiltered, rightSelected, leftPath, rightPath, rightNavLoading, previewLoading, previewMax]
   );
+
+  // Reset zoom when preview target changes
+  useEffect(() => { setPreviewScale(1); }, [rightEntry?.name, rightPath]);
 
   // Global key handler to avoid focus issues
   useEffect(() => {
@@ -254,6 +305,9 @@ export default function App() {
         setActivePane((p) => (p === 'left' ? 'right' : 'left'));
         return;
       }
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); cmds.run('zoomIn', ctx); return; }
+      if (e.key === '-' || e.key === '_') { e.preventDefault(); cmds.run('zoomOut', ctx); return; }
+      if (e.key === '0') { e.preventDefault(); cmds.run('zoomReset', ctx); return; }
       const b = keymap.find((k) => k.key === e.key);
       if (b) {
         e.preventDefault();
@@ -264,7 +318,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler);
   }, [keymap, cmds, ctx]);
 
-  const rightEntry = rightFiltered[rightSelected];
+  
 
   return (
     <div className="h-screen flex flex-col">
@@ -272,9 +326,14 @@ export default function App() {
       <div className="flex-1 grid" style={{ gridTemplateColumns: previewMax ? '1fr' : '1fr 1fr 1fr', minHeight: 0 }}>
         {!previewMax && (
         <div
-          className={`border-r h-full overflow-auto ${activePane === 'left' ? 'bg-white' : ''}`}
+          className={`border-r h-full overflow-auto relative ${activePane === 'left' ? 'bg-white' : ''}`}
           onClick={() => setActivePane('left')}
         >
+          {leftLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+              <div className="text-sm text-gray-500">Loading...</div>
+            </div>
+          )}
           <Pane
             entries={leftDirs}
             selected={leftSelected}
@@ -314,6 +373,7 @@ export default function App() {
             entry={rightEntry}
             onLoadingStart={() => setPreviewLoading(true)}
             onLoaded={() => setPreviewLoading(false)}
+            scale={previewMax ? previewScale : 1}
           />
         </div>
       </div>
@@ -333,7 +393,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="border-t px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+      <div className="border-t px-3 py-2 text-xs text-gray-600 flex flex-wrap gap-x-4 gap-y-1 max-h-24 overflow-auto">
         <span>
           <kbd className="inline-block px-1 border rounded mr-1">j</kbd>
           <kbd className="inline-block px-1 border rounded mr-1">k</kbd>
@@ -372,10 +432,48 @@ export default function App() {
           Toggle maximize
         </span>
         <span>
+          <kbd className="inline-block px-1 border rounded mr-1">+</kbd>
+          <kbd className="inline-block px-1 border rounded mr-1">-</kbd>
+          Zoom in/out (max only)
+        </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">0</kbd>
+          Reset zoom (max only)
+        </span>
+        <span>
           <kbd className="inline-block px-1 border rounded mr-1">r</kbd>
           Refresh
         </span>
+        <span>
+          <kbd className="inline-block px-1 border rounded mr-1">?</kbd>
+          Help
+        </span>
       </div>
+
+      {showHelp && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setShowHelp(false)}>
+          <div className="bg-white rounded shadow p-4 max-w-3xl w-[90%] max-h-[70vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-sm font-semibold mb-2">キーバインド一覧</h2>
+            <ul className="text-xs grid grid-cols-2 gap-x-6 gap-y-1">
+              <li><kbd className="px-1 border rounded mr-1">j</kbd>/<kbd className="px-1 border rounded mr-1">k</kbd> Move</li>
+              <li><kbd className="px-1 border rounded mr-1">h</kbd> Parent</li>
+              <li><kbd className="px-1 border rounded mr-1">l</kbd> Open dir (file: none)</li>
+              <li><kbd className="px-1 border rounded mr-1">Enter</kbd> Open file</li>
+              <li><kbd className="px-1 border rounded mr-1">Tab</kbd> Switch pane</li>
+              <li><kbd className="px-1 border rounded mr-1">/</kbd> Search</li>
+              <li><kbd className="px-1 border rounded mr-1">g</kbd>/<kbd className="px-1 border rounded mr-1">G</kbd> Top/Bottom</li>
+              <li><kbd className="px-1 border rounded mr-1">f</kbd> Toggle maximize</li>
+              <li><kbd className="px-1 border rounded mr-1">+</kbd>/<kbd className="px-1 border rounded mr-1">-</kbd> Zoom in/out</li>
+              <li><kbd className="px-1 border rounded mr-1">0</kbd> Reset zoom</li>
+              <li><kbd className="px-1 border rounded mr-1">r</kbd> Refresh</li>
+              <li><kbd className="px-1 border rounded mr-1">?</kbd> Toggle this help</li>
+            </ul>
+            <div className="text-right mt-3">
+              <button className="underline text-sm" onClick={() => setShowHelp(false)}>閉じる</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
